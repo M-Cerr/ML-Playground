@@ -12,9 +12,9 @@ def load_dataset(file_path):
 # Function to load all datasets
 def load_sample_datasets():
     dataset_paths = {
-        'Sample 1': 'datasets/sample1.csv',
-        'Sample 2': 'datasets/sample2.csv',
-        'Sample 3': 'datasets/sample3.csv',
+        'Sample 1 - Food Delivery Times': 'SampleDatasets/FoodDeliveryTimes-Sample1.csv',
+        'Sample 2 - Car Details': 'SampleDatasets/CarDetailsV4-Sample2.csv',
+        'Sample 3 - Walmart Weekly Sales': 'SampleDatasets/WalmartSales-Sample3.csv',
     }
     
     datasets = {}
