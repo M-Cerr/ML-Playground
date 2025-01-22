@@ -16,29 +16,40 @@ def analyze_dataset(df, categorical_columns):
         for col in df.columns:
             if missing[col].any():
                 issues["missing_values"][col] = list(df.index[missing[col]])
-    
+
     # Check for type mismatches
     for col in df.columns:
         if col in categorical_columns:
             continue  # Skip type checks for user-defined categorical columns
 
         # Handle numeric columns
+        mismatches = None
         if pd.api.types.is_numeric_dtype(df[col]):
+            # Check if values are numeric or null
             mismatches = df[~df[col].apply(lambda x: isinstance(x, (int, float)) or pd.isnull(x))]
-            if not mismatches.empty:
-                issues["type_mismatches"][col] = list(mismatches.index)
+        else:
+            # If not numeric dtype, check if all values can be coerced to numeric
+            try:
+                pd.to_numeric(df[col], errors="raise")
+            except ValueError:
+                mismatches = df[~df[col].apply(lambda x: isinstance(x, (int, float)) or pd.isnull(x))]
+
+        # Record mismatches
+        if mismatches is not None and not mismatches.empty:
+            issues["type_mismatches"][col] = list(mismatches.index)
     
     return issues
 
-# Function to style the dataframe
+# Function to style the dataframe with see-through highlights
 def highlight_issues(df, issues):
     def highlight_cell(val, row_idx, col_name):
         if col_name in issues["missing_values"] and row_idx in issues["missing_values"][col_name]:
-            return "background-color: yellow"
+            return "background-color: rgba(255, 255, 0, 0.3)"  # Light yellow
         if col_name in issues["type_mismatches"] and row_idx in issues["type_mismatches"][col_name]:
-            return "background-color: red"
+            return "background-color: rgba(255, 0, 0, 0.3)"  # Light red
         return ""
 
+    # Apply style
     return df.style.apply(
         lambda col: [
             highlight_cell(val, idx, col.name) for idx, val in enumerate(col)
@@ -103,22 +114,22 @@ if st.session_state.get(f"{selected_dataset_name}_done"):
     styled_df = highlight_issues(df, issues)
     st.dataframe(styled_df, use_container_width=True, height=500)
 
-    # Display checklist summary
+    # Display checklist summary with expanders
     st.sidebar.header("Dataset Analysis Summary")
-    if issues["missing_values"]:
-        st.sidebar.write("⚠️ **Missing Values Found**")
-        for col, rows in issues["missing_values"].items():
-            st.sidebar.write(f"- Column `{col}`: Rows {rows}")
-    else:
-        st.sidebar.write("✅ No missing values detected.")
-    
-    if issues["type_mismatches"]:
-        st.sidebar.write("⚠️ **Type Mismatches Found**")
-        for col, rows in issues["type_mismatches"].items():
-            st.sidebar.write(f"- Column `{col}`: Rows {rows}")
-    else:
-        st.sidebar.write("✅ No type mismatches detected.")
-    
+
+    # Missing values summary
+    # Add clickable cell links for auto-scroll (HTML + JavaScript injection)
+    with st.sidebar.expander("⚠️ Missing Values Found" if issues["missing_values"] else "✅ No missing values detected"):
+        if issues["missing_values"]:
+            for col, rows in issues["missing_values"].items():
+                st.write(f"`{col}`: Rows {rows}")
+
+    # Type mismatches summary
+    with st.sidebar.expander("⚠️ Type Mismatches Found" if issues["type_mismatches"] else "✅ No type mismatches detected"):
+        if issues["type_mismatches"]:
+            for col, rows in issues["type_mismatches"].items():
+                st.write(f"`{col}`: Rows {rows}")
+
     st.sidebar.write("### Categorical Columns")
     if st.session_state['categorical_columns'][selected_dataset_name]:
         for col in st.session_state['categorical_columns'][selected_dataset_name]:
