@@ -38,44 +38,57 @@ def main():
             help="Choose columns that should be treated as categorical."
         )
 
-        # Update session state with user-selected categorical columns
-        st.session_state['categorical_columns'][selected_dataset_name] = selected_categorical_columns
+        # Add an "Update" button to save changes
+        if st.button("Update Categorical Columns"):
+            st.session_state['categorical_columns'][selected_dataset_name] = selected_categorical_columns
+            st.success(f"Updated categorical columns: {', '.join(selected_categorical_columns)}")
+            st.session_state[f"{selected_dataset_name}_done"] = True
 
+        # Add the index column to the DataFrame for display
+        df_with_index = df.reset_index()
+        df_with_index.rename(columns={"index": "Index"}, inplace=True)
 
-        # Configure AgGrid with highlights for categorical columns
-        gb = GridOptionsBuilder.from_dataframe(df)
-        for col in df.columns:
-            editable = col not in selected_categorical_columns
-            gb.configure_column(col, editable=editable, cellStyle={"backgroundColor": "rgba(0, 0, 255, 0.1)" if col in selected_categorical_columns else "white"})
+        # Configure AgGrid
+        gb = GridOptionsBuilder.from_dataframe(df_with_index)
+
+        # Adjust column styling
+        for col in df_with_index.columns:
+            if col == "Index":
+                # Keep the Row Index column non-editable
+                gb.configure_column(col, editable=False, cellStyle={"backgroundColor": "rgba(0, 0, 0, 0.05)"})
+            elif col in selected_categorical_columns:
+                # Categorical columns: Light blue, more transparent
+                gb.configure_column(col, editable=False, cellStyle={"backgroundColor": "rgba(0, 0, 255, 0.1)"})
+            else:
+                # Non-categorical columns: Default background
+                gb.configure_column(col, editable=True, cellStyle={"backgroundColor": "inherit"})
+
         gb.configure_default_column(sortable=True, filter=True, resizable=True)
         gb.configure_selection(selection_mode="single", use_checkbox=True)
         grid_options = gb.build()
 
         # Display AgGrid table
         grid_response = AgGrid(
-            df,
+            df_with_index,
             gridOptions=grid_options,
             update_mode=GridUpdateMode.VALUE_CHANGED,
             theme="streamlit",
             fit_columns_on_grid_load=True,
         )
 
-        # Get updated DataFrame after edits
-        updated_df = grid_response["data"]
+        # Save updates made in the table back to the session state
+        updated_df = pd.DataFrame(grid_response["data"])
+        updated_df.set_index("Index", inplace=True)  # Restore the original index
         st.session_state['datasets'][selected_dataset_name] = updated_df
 
-        # Categorical column selection
-        if st.button("Proceed to Categorical Columns"):
-            st.session_state[f"{selected_dataset_name}_done"] = True
-
-    # Step 4: Analyze and display the dataset
+    # Step 4: Analyze and re-display the dataset
     if st.session_state.get(f"{selected_dataset_name}_done"):
         st.write("### Step 3: Dataset Analysis")
-        issues = analyze_dataset(df, st.session_state['categorical_columns'][selected_dataset_name])
+        issues = analyze_dataset(updated_df, st.session_state['categorical_columns'][selected_dataset_name])
         
         # Display dataset again with updated issues
         st.write("Updated Dataset with Issues Highlighted")
-        styled_df = highlight_issues(df, issues)
+        styled_df = highlight_issues(updated_df, issues)
         st.dataframe(styled_df, use_container_width=True, height=500)
 
         # Display checklist summary with expanders
