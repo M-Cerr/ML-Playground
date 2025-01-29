@@ -2,7 +2,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import streamlit as st
 from data_loader import load_sample_datasets
 from dataset_analysis import analyze_dataset
-from dataset_analysis import highlight_issues
+from dataset_analysis import highlight_issues_aggrid
 from preprocessing import handle_missing_values
 import pandas as pd
 import numpy as np
@@ -44,36 +44,60 @@ def main():
             st.success(f"Updated categorical columns: {', '.join(selected_categorical_columns)}")
             st.session_state[f"{selected_dataset_name}_done"] = True
 
-        # Add the index column to the DataFrame for display
+    # Step 3: Analyze and highlight issues in the dataset
+    if st.session_state.get(f"{selected_dataset_name}_done"):
+        st.write("### Step 3: Dataset Analysis")
+        
+        # Analyze dataset for issues
+        issues = analyze_dataset(df, st.session_state['categorical_columns'][selected_dataset_name])
+
+        # Generate AgGrid-compatible row styles
+        row_styles = highlight_issues_aggrid(df, issues)
+
+        # Add index column to the DataFrame for display
         df_with_index = df.reset_index()
         df_with_index.rename(columns={"index": "Index"}, inplace=True)
 
         # Configure AgGrid
         gb = GridOptionsBuilder.from_dataframe(df_with_index)
 
-        # Adjust column styling
+        # Apply per-column cell styling (highlight affected cells)
         for col in df_with_index.columns:
-            if col == "Index":
-                # Keep the Row Index column non-editable
-                gb.configure_column(col, editable=False, cellStyle={"backgroundColor": "rgba(0, 0, 0, 0.05)"})
-            elif col in selected_categorical_columns:
-                # Categorical columns: Light blue, more transparent
-                gb.configure_column(col, editable=False, cellStyle={"backgroundColor": "rgba(0, 0, 255, 0.1)"})
-            else:
-                # Non-categorical columns: Default background
-                gb.configure_column(col, editable=True, cellStyle={"backgroundColor": "inherit"})
+            base_style = {
+                "backgroundColor": "rgba(50, 50, 50, 1)",  # Default dark grey for rows
+                "color": "white",  # Ensure text remains visible
+                "textShadow": "1px 1px 2px black",  # Outline text for better contrast
+            }
 
-        gb.configure_default_column(sortable=True, filter=True, resizable=True)
-        gb.configure_selection(selection_mode="single", use_checkbox=True)
+            if col == "Index":
+                base_style["backgroundColor"] = "rgba(200, 200, 200, 0.5)"  # Transparent light grey for index
+
+            if col in st.session_state['categorical_columns'][selected_dataset_name]:
+                base_style["backgroundColor"] = "rgba(0, 0, 255, 0.2)"  # Light blue for categorical
+
+            if col in issues["missing_values"]:
+                base_style["backgroundImage"] = "linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 50%, transparent 50%)"  # Yellow vertical gradient
+
+            if col in issues["type_mismatches"]:
+                base_style["border"] = "2px solid rgba(255, 0, 0, 0.5)"  # Red border for type mismatches
+
+            gb.configure_column(col, editable=True, cellStyle=base_style)
+
+        # Enable auto column resizing
+        gb.configure_default_column(resizable=True, autoSize=True, sortable=True, filter=True)
+
+        # Build the grid options dictionary
         grid_options = gb.build()
 
-        # Display AgGrid table
+        # Display AgGrid table with increased size
         grid_response = AgGrid(
             df_with_index,
             gridOptions=grid_options,
             update_mode=GridUpdateMode.VALUE_CHANGED,
             theme="streamlit",
             fit_columns_on_grid_load=True,
+            height=700,  # Increase table height
+            width="100%",  # Expand full width
         )
 
         # Save updates made in the table back to the session state
@@ -81,15 +105,15 @@ def main():
         updated_df.set_index("Index", inplace=True)  # Restore the original index
         st.session_state['datasets'][selected_dataset_name] = updated_df
 
-    # Step 4: Analyze and re-display the dataset
-    if st.session_state.get(f"{selected_dataset_name}_done"):
-        st.write("### Step 3: Dataset Analysis")
-        issues = analyze_dataset(updated_df, st.session_state['categorical_columns'][selected_dataset_name])
-        
-        # Display dataset again with updated issues
-        st.write("Updated Dataset with Issues Highlighted")
-        styled_df = highlight_issues(updated_df, issues)
-        st.dataframe(styled_df, use_container_width=True, height=500)
+        # 🛠️ Add a Help Icon for Legend
+        with st.sidebar.expander("❓ Help: Color Legend"):
+            st.write("""
+            - **🔵 Light Blue** → Categorical Column  
+            - **🟡 Light Yellow (Vertical Strip)** → Missing Value  
+            - **🔴 Red Border** → Type Mismatch  
+            - **⚫ Dark Grey** → Default Row  
+            - **⚪ Light Grey** → Index Column  
+            """)
 
         # Display checklist summary with expanders
         st.sidebar.header("Dataset Analysis Summary")
@@ -118,11 +142,11 @@ def main():
         # Missing Value Replacement Section
         if st.sidebar.checkbox("Missing Value Replacement"):
             st.write("### Handle Missing Values")
-            
+
             # Iterate over columns with missing values
             for col in issues["missing_values"]:
                 st.write(f"#### Column: `{col}`")
-                
+
                 # Determine if the column is categorical
                 is_categorical = col in st.session_state['categorical_columns'][selected_dataset_name]
                 col_type = "Categorical" if is_categorical else "Numeric"
@@ -140,7 +164,7 @@ def main():
                     method_options,
                     key=f"missing_method_{col}"
                 )
-                
+
                 # For custom value option, add an input box
                 custom_value = None
                 if method == "Custom Value":
@@ -148,7 +172,7 @@ def main():
                         f"Enter custom value for `{col}`",
                         key=f"custom_value_{col}"
                     )
-                
+
                 # Apply the selected method when user clicks the button
                 if st.button(f"Apply to `{col}`"):
                     try:
@@ -165,11 +189,8 @@ def main():
 
             # Display the updated dataset
             st.write("### Updated Dataset")
-            # updated_df = st.session_state['datasets'][selected_dataset_name]
-            # st.dataframe(updated_df, use_container_width=True, height=500)
-            st.write("### Updated Dataset")
             st.dataframe(st.session_state['datasets'][selected_dataset_name], use_container_width=True, height=500)
-        
+
         st.sidebar.checkbox("Scaling")
 
 if __name__ == "__main__":

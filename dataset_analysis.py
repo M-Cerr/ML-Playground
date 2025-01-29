@@ -56,20 +56,23 @@ def highlight_issues(df, issues):
 
 # Function to create AgGrid-compatible cell styles based on issues
 def highlight_issues_aggrid(df, issues):
-    # Initialize cell styles
-    cell_styles = {}
+    """
+    Returns a JSON-compatible list of row styles for AgGrid.
+    Each row's style is determined based on missing values or type mismatches.
+    """
 
-    # Iterate over missing values and type mismatches to generate styles
-    for col in df.columns:
-        for row_idx in df.index:
-            cell_styles[(row_idx, col)] = {}  # Default empty style
-            
-            # Highlight missing values
+    row_styles = []
+
+    for row_idx in range(len(df)):
+        row_style = {}  # Default row style (no highlight)
+
+        for col in df.columns:
             if col in issues["missing_values"] and row_idx in issues["missing_values"][col]:
-                cell_styles[(row_idx, col)] = {"backgroundColor": "rgba(255, 255, 0, 0.3)"}  # Light yellow
-            
-            # Highlight type mismatches
+                row_style["backgroundColor"] = "rgba(255, 255, 0, 0.3)"  # Light yellow
             if col in issues["type_mismatches"] and row_idx in issues["type_mismatches"][col]:
-                cell_styles[(row_idx, col)] = {"backgroundColor": "rgba(255, 0, 0, 0.3)"}  # Light red
+                row_style["backgroundColor"] = "rgba(255, 0, 0, 0.3)"  # Light red
 
-    return cell_styles
+        row_styles.append(row_style)  # Append row-specific style
+
+    return row_styles
+
