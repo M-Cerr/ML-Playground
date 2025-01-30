@@ -1,5 +1,6 @@
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, ColumnsAutoSizeMode
 import streamlit as st
+from agstyler import draw_grid, highlight, PRECISION_TWO, PINLEFT
 from data_loader import load_sample_datasets
 from dataset_analysis import analyze_dataset
 from dataset_analysis import highlight_issues_aggrid
@@ -10,6 +11,10 @@ import numpy as np
 
 # Streamlit app
 def main():
+    st.set_page_config(  
+    layout="wide" # <--- EXTREMELY IMPORTANT
+    )
+
     # Initialize session state for datasets
     if 'datasets' not in st.session_state:
         st.session_state['datasets'] = load_sample_datasets()
@@ -51,69 +56,101 @@ def main():
         # Analyze dataset for issues
         issues = analyze_dataset(df, st.session_state['categorical_columns'][selected_dataset_name])
 
-        # Generate AgGrid-compatible row styles
-        row_styles = highlight_issues_aggrid(df, issues)
-
         # Add index column to the DataFrame for display
         df_with_index = df.reset_index()
         df_with_index.rename(columns={"index": "Index"}, inplace=True)
 
-        # Configure AgGrid
-        gb = GridOptionsBuilder.from_dataframe(df_with_index)
+        # Define formatting options for AgGrid
+        formatter = {}
 
-        # Apply per-column cell styling (highlight affected cells)
+        # for col in df_with_index.columns:
+        #     col_props = {}
+
+        #     # Set column width
+        #     col_props["width"] = 150 if col != "Index" else 100  # Index column smaller
+
+        #     # Apply precision for numeric columns
+        #     if pd.api.types.is_numeric_dtype(df_with_index[col]):
+        #         col_props.update(PRECISION_TWO)  # Show numbers with 2 decimal places
+
+        #     # Pin the index column
+        #     if col == "Index":
+        #         col_props.update(PINLEFT)
+
+        #     formatter[col] = (col, col_props)
+
+        # Define highlighting rules for missing values & type mismatches
+        highlight_rules = {
+            "missing_values": highlight("rgba(255, 255, 0, 0.5)", "params.value === null || params.value === ''"),
+            
+            # Type mismatch highlighting (only for numerical columns)
+            "type_mismatches": highlight(
+                "rgba(255, 0, 0, 0.5)",
+                """
+                function(params) {
+                    let colType = params.column.colDef.type;  // Retrieve column type
+                    if (colType !== "numericColumn") { return null; }  // Ignore categorical columns
+                    if (params.value === null || params.value === '') { return null; }  // Missing values should stay yellow
+                    return isNaN(params.value) ? { 'backgroundColor': 'rgba(255, 0, 0, 0.5)' } : null;
+                }
+                """
+            ),
+        }
+
+        # # Apply highlighting conditions to appropriate columns
+        # for col in df_with_index.columns:
+        #     if col in issues["missing_values"]:
+        #         formatter[col][1]["cellStyle"] = highlight_rules["missing_values"]
+        #     if col in issues["type_mismatches"]:
+        #         formatter[col][1]["cellStyle"] = highlight_rules["type_mismatches"]
+
+        # Apply highlighting conditions only if column type matches
         for col in df_with_index.columns:
-            base_style = {
-                "backgroundColor": "rgba(50, 50, 50, 1)",  # Default dark grey for rows
-                "color": "white",  # Ensure text remains visible
-                "textShadow": "1px 1px 2px black",  # Outline text for better contrast
-            }
+            col_props = {}
 
+            # Set column width
+            col_props["width"] = 150 if col != "Index" else 100  # Index column smaller
+
+            # Apply precision for numeric columns
+            if pd.api.types.is_numeric_dtype(df_with_index[col]):
+                col_props.update(PRECISION_TWO)  # Show numbers with 2 decimal places
+                col_props["type"] = ["numericColumn", "customNumericFormat"]  # Mark column as numeric
+
+            # Pin the index column
             if col == "Index":
-                base_style["backgroundColor"] = "rgba(200, 200, 200, 0.5)"  # Transparent light grey for index
+                col_props.update(PINLEFT)
 
-            if col in st.session_state['categorical_columns'][selected_dataset_name]:
-                base_style["backgroundColor"] = "rgba(0, 0, 255, 0.2)"  # Light blue for categorical
-
+            # Apply highlight for missing values
             if col in issues["missing_values"]:
-                base_style["backgroundImage"] = "linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 50%, transparent 50%)"  # Yellow vertical gradient
+                col_props["cellStyle"] = highlight_rules["missing_values"]
 
+            # Apply highlight for type mismatches (but only for numeric columns)
             if col in issues["type_mismatches"]:
-                base_style["border"] = "2px solid rgba(255, 0, 0, 0.5)"  # Red border for type mismatches
+                col_props["cellStyle"] = highlight_rules["type_mismatches"]
 
-            gb.configure_column(col, editable=True, cellStyle=base_style)
+            formatter[col] = (col, col_props)
 
-        # Enable auto column resizing
-        gb.configure_default_column(resizable=True, autoSize=True, sortable=True, filter=True)
+        # Add a floating legend popover near the table
+        with st.popover("❓ Help: Legend"):
+            st.write(""" 
+            - **🟡 Yellow** → Missing Value  
+            - **🔴 Red ** → Type Mismatch  
+            - **⚪ Light Grey** → Index Column  
+            """)
 
-        # Build the grid options dictionary
-        grid_options = gb.build()
-
-        # Display AgGrid table with increased size
-        grid_response = AgGrid(
+        # Display AgGrid table using `agstyler`
+        grid_response = draw_grid(
             df_with_index,
-            gridOptions=grid_options,
-            update_mode=GridUpdateMode.VALUE_CHANGED,
+            formatter=formatter,
+            fit_columns=True,  # Ensure better column sizing
             theme="streamlit",
-            fit_columns_on_grid_load=True,
-            height=700,  # Increase table height
-            width="100%",  # Expand full width
+            max_height=700,  # Keep table height large
         )
-
+        
         # Save updates made in the table back to the session state
         updated_df = pd.DataFrame(grid_response["data"])
         updated_df.set_index("Index", inplace=True)  # Restore the original index
         st.session_state['datasets'][selected_dataset_name] = updated_df
-
-        # 🛠️ Add a Help Icon for Legend
-        with st.sidebar.expander("❓ Help: Color Legend"):
-            st.write("""
-            - **🔵 Light Blue** → Categorical Column  
-            - **🟡 Light Yellow (Vertical Strip)** → Missing Value  
-            - **🔴 Red Border** → Type Mismatch  
-            - **⚫ Dark Grey** → Default Row  
-            - **⚪ Light Grey** → Index Column  
-            """)
 
         # Display checklist summary with expanders
         st.sidebar.header("Dataset Analysis Summary")

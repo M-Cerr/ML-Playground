@@ -37,6 +37,12 @@ def analyze_dataset(df, categorical_columns):
     
     return issues
 
+#########
+#Both of the below functions are deprecated due to 
+#agstyler.py highlighter function which works better for 
+#the app's purposes. Kept here for reference/record
+########
+
 # Function to style the dataframe with see-through highlights
 def highlight_issues(df, issues):
     def highlight_cell(val, row_idx, col_name):
