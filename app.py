@@ -63,22 +63,6 @@ def main():
         # Define formatting options for AgGrid
         formatter = {}
 
-        # for col in df_with_index.columns:
-        #     col_props = {}
-
-        #     # Set column width
-        #     col_props["width"] = 150 if col != "Index" else 100  # Index column smaller
-
-        #     # Apply precision for numeric columns
-        #     if pd.api.types.is_numeric_dtype(df_with_index[col]):
-        #         col_props.update(PRECISION_TWO)  # Show numbers with 2 decimal places
-
-        #     # Pin the index column
-        #     if col == "Index":
-        #         col_props.update(PINLEFT)
-
-        #     formatter[col] = (col, col_props)
-
         # Define highlighting rules for missing values & type mismatches
         highlight_rules = {
             "missing_values": highlight("rgba(255, 255, 0, 0.5)", "params.value === null || params.value === ''"),
@@ -89,20 +73,13 @@ def main():
                 """
                 function(params) {
                     let colType = params.column.colDef.type;  // Retrieve column type
-                    if (colType !== "numericColumn") { return null; }  // Ignore categorical columns
-                    if (params.value === null || params.value === '') { return null; }  // Missing values should stay yellow
+                    if (colType !== "numericColumn") { return {}; }  // Ignore categorical columns
+                    if (params.value === null || params.value === '') { return {}; } // Missing values should stay yellow
                     return isNaN(params.value) ? { 'backgroundColor': 'rgba(255, 0, 0, 0.5)' } : null;
                 }
                 """
             ),
         }
-
-        # # Apply highlighting conditions to appropriate columns
-        # for col in df_with_index.columns:
-        #     if col in issues["missing_values"]:
-        #         formatter[col][1]["cellStyle"] = highlight_rules["missing_values"]
-        #     if col in issues["type_mismatches"]:
-        #         formatter[col][1]["cellStyle"] = highlight_rules["type_mismatches"]
 
         # Apply highlighting conditions only if column type matches
         for col in df_with_index.columns:
@@ -110,6 +87,9 @@ def main():
 
             # Set column width
             col_props["width"] = 150 if col != "Index" else 100  # Index column smaller
+
+            # Make cells editable for user inputs
+            col_props["editable"] = True
 
             # Apply precision for numeric columns
             if pd.api.types.is_numeric_dtype(df_with_index[col]):
@@ -119,6 +99,7 @@ def main():
             # Pin the index column
             if col == "Index":
                 col_props.update(PINLEFT)
+                col_props["editable"] = False #Don't let user mess with index numbers
 
             # Apply highlight for missing values
             if col in issues["missing_values"]:
@@ -150,7 +131,11 @@ def main():
         # Save updates made in the table back to the session state
         updated_df = pd.DataFrame(grid_response["data"])
         updated_df.set_index("Index", inplace=True)  # Restore the original index
-        st.session_state['datasets'][selected_dataset_name] = updated_df
+        if not updated_df.equals(st.session_state['datasets'][selected_dataset_name]):  # If changes detected
+                st.session_state['datasets'][selected_dataset_name] = updated_df  # Update dataset
+                st.session_state["issues"] = analyze_dataset(updated_df, st.session_state['categorical_columns'][selected_dataset_name])  # Recalculate missing values & mismatches
+                st.rerun()  # Refresh UI to reflect updates
+        
 
         # Display checklist summary with expanders
         st.sidebar.header("Dataset Analysis Summary")
@@ -180,54 +165,67 @@ def main():
         if st.sidebar.checkbox("Missing Value Replacement"):
             st.write("### Handle Missing Values")
 
-            # Iterate over columns with missing values
-            for col in issues["missing_values"]:
-                st.write(f"#### Column: `{col}`")
+            missing_columns = list(issues["missing_values"].keys())
 
-                # Determine if the column is categorical
-                is_categorical = col in st.session_state['categorical_columns'][selected_dataset_name]
-                col_type = "Categorical" if is_categorical else "Numeric"
+            if missing_columns:
+                # Create a DataFrame for Missing Value Handling
+                missing_df = pd.DataFrame({
+                    "Column": missing_columns,
+                    "Column Type": ["Categorical" if col in st.session_state['categorical_columns'][selected_dataset_name] else "Numeric" for col in missing_columns],
+                    "Method": ["Mean" if col not in st.session_state['categorical_columns'][selected_dataset_name] else "Mode" for col in missing_columns],
+                    "Custom Value": ["" for _ in missing_columns],
+                })
 
-                st.write(f"Column Type: **{col_type}**")
+                # Define Formatter for Grid
+                formatter = {}
+                for col in missing_df.columns:
+                    col_props = {"width": 200}  # Default width for clarity
+                    if col == "Custom Value":
+                        col_props["editable"] = True  # Allow user input
+                    elif col == "Method":
+                        col_props["editable"] = True
+                        col_props["cellEditor"] = "agSelectCellEditor"
+                        col_props["cellEditorParams"] = {"values": ["Mean", "Median", "Mode", "Custom Value"]}
+                    formatter[col] = (col, col_props)
 
-                # Select method options based on column type
-                if is_categorical:
-                    method_options = ["Mode", "Custom Value"]
-                else:
-                    method_options = ["Mean", "Median", "Mode", "Custom Value"]
-
-                method = st.selectbox(
-                    f"Select method for `{col}`",
-                    method_options,
-                    key=f"missing_method_{col}"
+                # Display Editable Grid Using `draw_grid()`
+                grid_response = draw_grid(
+                    missing_df,
+                    formatter=formatter,
+                    fit_columns=True,
+                    theme="streamlit",
+                    max_height=700,
                 )
 
-                # For custom value option, add an input box
-                custom_value = None
-                if method == "Custom Value":
-                    custom_value = st.text_input(
-                        f"Enter custom value for `{col}`",
-                        key=f"custom_value_{col}"
-                    )
+                # Get Updated Data from Grid
+                updated_missing_df = pd.DataFrame(grid_response["data"])
 
-                # Apply the selected method when user clicks the button
-                if st.button(f"Apply to `{col}`"):
+                # Apply Fixes When User Clicks the Button
+                if st.button("Apply Missing Value Fixes"):
                     try:
-                        st.session_state['datasets'][selected_dataset_name] = handle_missing_values(
-                            st.session_state['datasets'][selected_dataset_name],
-                            col,
-                            method,
-                            custom_value,
-                            is_categorical
-                        )
-                        st.success(f"Missing values in `{col}` handled successfully!")
+                        for _, row in updated_missing_df.iterrows():
+                            col = row["Column"]
+                            method = row["Method"]
+                            custom_value = row["Custom Value"] if row["Method"] == "Custom Value" else None
+                            is_categorical = col in st.session_state['categorical_columns'][selected_dataset_name]
+
+                            st.session_state['datasets'][selected_dataset_name] = handle_missing_values(
+                                st.session_state['datasets'][selected_dataset_name],
+                                col,
+                                method,
+                                custom_value,
+                                is_categorical
+                            )
+
+                        st.success("Missing values handled successfully!")
+                        st.rerun()  # Refresh the page to update the grid
                     except Exception as e:
-                        st.error(f"Error while handling `{col}`: {e}")
+                        st.error(f"Error while handling missing values: {e}")
 
-            # Display the updated dataset
-            st.write("### Updated Dataset")
-            st.dataframe(st.session_state['datasets'][selected_dataset_name], use_container_width=True, height=500)
+            else:
+                st.write("✅ No missing values detected!")
 
+            
         st.sidebar.checkbox("Scaling")
 
 if __name__ == "__main__":
