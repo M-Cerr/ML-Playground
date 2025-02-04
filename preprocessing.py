@@ -44,3 +44,23 @@ def handle_missing_values(df, column, method, custom_value=None, is_categorical=
             raise ValueError(f"Unsupported method '{method}' for categorical columns.")
 
     return df
+
+
+def apply_categorical_encoding(df, selected_columns, encoding_method):
+    """
+    Applies categorical encoding to the specified columns in the dataset.
+    
+    Parameters:
+    - df (pd.DataFrame): The original dataset.
+    - selected_columns (list): Columns to encode.
+    - encoding_method (str): The encoding method ("One-Hot Encoding").
+    
+    Returns:
+    - pd.DataFrame: The dataset with encoded categorical variables.
+    """
+    df_encoded = df.copy()
+
+    if encoding_method == "One-Hot Encoding":
+        df_encoded = pd.get_dummies(df_encoded, columns=selected_columns, drop_first=True)
+
+    return df_encoded

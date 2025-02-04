@@ -5,6 +5,7 @@ from data_loader import load_sample_datasets
 from dataset_analysis import analyze_dataset
 from dataset_analysis import highlight_issues_aggrid
 from preprocessing import handle_missing_values
+from preprocessing import apply_categorical_encoding  # Import encoding function
 import pandas as pd
 import numpy as np
  
@@ -225,7 +226,75 @@ def main():
             else:
                 st.write("✅ No missing values detected!")
 
+        # Categorical Data Encoding Section
+        if st.sidebar.checkbox("Categorical Data Encoding"):
+            st.write("### Encode Categorical Data")
+        
+            # Retrieve current categorical columns
+            categorical_columns = st.session_state['categorical_columns'].get(selected_dataset_name, [])
+
+            # Filter out any columns that no longer exist in the dataset
+            available_columns = [col for col in categorical_columns if col in st.session_state['datasets'][selected_dataset_name].columns]
+        
+            # Ensure `selected_columns` is initialized before usage
+            selected_columns = st.session_state.get("selected_columns", [])
+
+            # Ensure selected columns are valid
+            selected_columns = [col for col in selected_columns if col in available_columns]  
+
+            selected_columns = st.multiselect(
+                "Select Columns to Encode",
+                options=available_columns,  # Only allow selection of columns still in the dataset
+                default=selected_columns,  # Ensure defaults exist in options
+                help="Choose categorical columns to transform into numeric values."
+            )
+
+            # Save selection in session state
+            st.session_state["selected_columns"] = selected_columns
             
+            # Selection box for encoding method
+            encoding_method = st.selectbox(
+                "Select Encoding Method",
+                ["One-Hot Encoding"],  # Future: Add Label/Ordinal Encoding
+                help="Select how to encode categorical variables."
+            )
+            
+            # Clickable button to apply encoding
+            if st.button("Apply Encoding"):
+                try:
+                    # Apply encoding
+                    st.session_state['datasets'][selected_dataset_name] = apply_categorical_encoding(
+                        st.session_state['datasets'][selected_dataset_name],
+                        selected_columns,
+                        encoding_method
+                    )
+        
+                    # Update categorical columns in session state after encoding
+                    for col in selected_columns:
+                        if col in st.session_state['categorical_columns'][selected_dataset_name]:
+                            st.session_state['categorical_columns'][selected_dataset_name].remove(col)
+        
+                    st.success("Categorical Encoding Applied Successfully!")
+                    st.rerun()  # Refresh UI
+                except Exception as e:
+                    st.error(f"Error while encoding categorical data: {e}")
+        
+            # Show Side-by-Side Comparison
+            st.write("### Original vs. Encoded Dataset")
+            st.write("#### 🔹 Original Dataset")
+            st.dataframe(st.session_state['datasets'][selected_dataset_name])
+    
+            st.write("#### 🔹 Encoded Dataset Preview")
+            encoded_preview = apply_categorical_encoding(
+                st.session_state['datasets'][selected_dataset_name],
+                selected_columns,
+                encoding_method
+            )
+            st.dataframe(encoded_preview)
+    
+        else:
+            st.write("⚠️ No categorical columns available for encoding.")
+
         st.sidebar.checkbox("Scaling")
 
 if __name__ == "__main__":
