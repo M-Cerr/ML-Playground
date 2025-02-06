@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
 
 def handle_missing_values(df, column, method, custom_value=None, is_categorical=False):
     """
@@ -46,7 +47,7 @@ def handle_missing_values(df, column, method, custom_value=None, is_categorical=
     return df
 
 
-def apply_categorical_encoding(df, selected_columns, encoding_method):
+def apply_categorical_encoding(df, selected_columns, encoding_method, drop_option=None):
     """
     Applies categorical encoding to the specified columns in the dataset.
     
@@ -54,6 +55,7 @@ def apply_categorical_encoding(df, selected_columns, encoding_method):
     - df (pd.DataFrame): The original dataset.
     - selected_columns (list): Columns to encode.
     - encoding_method (str): The encoding method ("One-Hot Encoding").
+    - drop_option (str): The option for dropping columns ("Drop first column", "Drop binary columns", "Keep all columns").
     
     Returns:
     - pd.DataFrame: The dataset with encoded categorical variables.
@@ -61,6 +63,21 @@ def apply_categorical_encoding(df, selected_columns, encoding_method):
     df_encoded = df.copy()
 
     if encoding_method == "One-Hot Encoding":
-        df_encoded = pd.get_dummies(df_encoded, columns=selected_columns, drop_first=True)
+        encoder = OneHotEncoder(sparse_output=False, dtype=int)
+
+        # Apply One-Hot Encoding
+        encoded_data = encoder.fit_transform(df_encoded[selected_columns])
+        encoded_df = pd.DataFrame(encoded_data, columns=encoder.get_feature_names_out(selected_columns))
+
+        # Handle Drop Option
+        if drop_option == "Drop first column":
+            encoded_df = encoded_df.iloc[:, len(selected_columns):]  # Drop first encoding column per feature
+        elif drop_option == "Drop binary columns":
+            binary_cols = [col for col in encoded_df.columns if '_0' in col]
+            encoded_df.drop(columns=binary_cols, inplace=True)
+
+        # Drop original categorical columns & merge with the main dataset
+        df_encoded.drop(columns=selected_columns, inplace=True)
+        df_encoded = pd.concat([df_encoded, encoded_df], axis=1)
 
     return df_encoded

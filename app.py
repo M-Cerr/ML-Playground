@@ -230,67 +230,81 @@ def main():
         if st.sidebar.checkbox("Categorical Data Encoding"):
             st.write("### Encode Categorical Data")
         
-            # Retrieve current categorical columns
+            # Retrieve categorical columns
             categorical_columns = st.session_state['categorical_columns'].get(selected_dataset_name, [])
-
-            # Filter out any columns that no longer exist in the dataset
+        
+            # Ensure valid columns exist in the dataset
             available_columns = [col for col in categorical_columns if col in st.session_state['datasets'][selected_dataset_name].columns]
         
-            # Ensure `selected_columns` is initialized before usage
-            selected_columns = st.session_state.get("selected_columns", [])
-
-            # Ensure selected columns are valid
-            selected_columns = [col for col in selected_columns if col in available_columns]  
-
+            # Preserve user-selected columns in session state (Fix Multi-Select Issue)
+            if "selected_columns" not in st.session_state:
+                st.session_state["selected_columns"] = []
+        
+            # Ensure selected columns are valid & persist selection
             selected_columns = st.multiselect(
                 "Select Columns to Encode",
-                options=available_columns,  # Only allow selection of columns still in the dataset
-                default=selected_columns,  # Ensure defaults exist in options
+                options=available_columns,
+                default=[col for col in st.session_state["selected_columns"] if col in available_columns],  
                 help="Choose categorical columns to transform into numeric values."
             )
-
+    
             # Save selection in session state
             st.session_state["selected_columns"] = selected_columns
-            
-            # Selection box for encoding method
+        
             encoding_method = st.selectbox(
                 "Select Encoding Method",
-                ["One-Hot Encoding"],  # Future: Add Label/Ordinal Encoding
+                ["One-Hot Encoding"],
                 help="Select how to encode categorical variables."
             )
-            
-            # Clickable button to apply encoding
+
+            # Additional Options for One-Hot Encoding
+            drop_option = None
+            if encoding_method == "One-Hot Encoding":
+                drop_option = st.radio(
+                    "Select Column Dropping Behavior",
+                    ["Drop first column", "Drop binary columns", "Keep all columns"],
+                    index=2  # Default: Keep all columns
+                )
+        
+            # Ensure temp dataset only appears after encoding is applied
+            if "temp_encoded_dataset" not in st.session_state:
+                st.session_state["temp_encoded_dataset"] = None  # Set to None instead of copying dataset
+        
+            # Apply Encoding Temporarily (Does Not Update Main Table)
             if st.button("Apply Encoding"):
                 try:
-                    # Apply encoding
-                    st.session_state['datasets'][selected_dataset_name] = apply_categorical_encoding(
-                        st.session_state['datasets'][selected_dataset_name],
+                    temp_df = apply_categorical_encoding(
+                        st.session_state['datasets'][selected_dataset_name],  # Apply on original dataset
                         selected_columns,
-                        encoding_method
+                        encoding_method,
+                        drop_option
                     )
+                    st.session_state["temp_encoded_dataset"] = temp_df  # Store temporary encoded dataset
         
-                    # Update categorical columns in session state after encoding
-                    for col in selected_columns:
-                        if col in st.session_state['categorical_columns'][selected_dataset_name]:
-                            st.session_state['categorical_columns'][selected_dataset_name].remove(col)
-        
-                    st.success("Categorical Encoding Applied Successfully!")
-                    st.rerun()  # Refresh UI
+                    st.success("Encoding applied! Review the changes below before confirming.")
                 except Exception as e:
                     st.error(f"Error while encoding categorical data: {e}")
         
-            # Show Side-by-Side Comparison
-            st.write("### Original vs. Encoded Dataset")
-            st.write("#### 🔹 Original Dataset")
-            st.dataframe(st.session_state['datasets'][selected_dataset_name])
-    
-            st.write("#### 🔹 Encoded Dataset Preview")
-            encoded_preview = apply_categorical_encoding(
-                st.session_state['datasets'][selected_dataset_name],
-                selected_columns,
-                encoding_method
-            )
-            st.dataframe(encoded_preview)
+            # Show Before & After Side-by-Side Comparison
+            if st.session_state["temp_encoded_dataset"] is not None:
+                st.write("### Original vs. Encoded Dataset")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.write("#### 🔹 Original Dataset (Before Encoding)")
+                    st.dataframe(st.session_state['datasets'][selected_dataset_name])
+
+                with col2:
+                    st.write("#### 🔹 Encoded Dataset (After Encoding)")
+                    st.dataframe(st.session_state["temp_encoded_dataset"])
+
+                # Only Update the Main AgGrid Table When User Confirms Changes
+                if st.button("Confirm & Update Dataset"):
+                    st.session_state['datasets'][selected_dataset_name] = st.session_state["temp_encoded_dataset"]
+                    st.success("Main dataset updated successfully!")
+                    del st.session_state["temp_encoded_dataset"]  # Clear temp dataset
+                    st.rerun()
     
         else:
             st.write("⚠️ No categorical columns available for encoding.")
