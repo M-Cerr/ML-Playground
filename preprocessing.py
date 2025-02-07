@@ -63,18 +63,18 @@ def apply_categorical_encoding(df, selected_columns, encoding_method, drop_optio
     df_encoded = df.copy()
 
     if encoding_method == "One-Hot Encoding":
-        encoder = OneHotEncoder(sparse_output=False, dtype=int)
+        # Determine drop behavior
+        drop_strategy = None
+        if drop_option == "Drop first column":
+            drop_strategy = "first"
+        elif drop_option == "Drop binary columns":
+            drop_strategy = "if_binary"
+
+        encoder = OneHotEncoder(sparse_output=False, dtype=int, drop=drop_strategy)
 
         # Apply One-Hot Encoding
         encoded_data = encoder.fit_transform(df_encoded[selected_columns])
         encoded_df = pd.DataFrame(encoded_data, columns=encoder.get_feature_names_out(selected_columns))
-
-        # Handle Drop Option
-        if drop_option == "Drop first column":
-            encoded_df = encoded_df.iloc[:, len(selected_columns):]  # Drop first encoding column per feature
-        elif drop_option == "Drop binary columns":
-            binary_cols = [col for col in encoded_df.columns if '_0' in col]
-            encoded_df.drop(columns=binary_cols, inplace=True)
 
         # Drop original categorical columns & merge with the main dataset
         df_encoded.drop(columns=selected_columns, inplace=True)

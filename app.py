@@ -244,11 +244,11 @@ def main():
             selected_columns = st.multiselect(
                 "Select Columns to Encode",
                 options=available_columns,
-                default=[col for col in st.session_state["selected_columns"] if col in available_columns],  
+                default=st.session_state["selected_columns"], 
                 help="Choose categorical columns to transform into numeric values."
             )
     
-            # Save selection in session state
+            # Simply update session state without forcing a rerun
             st.session_state["selected_columns"] = selected_columns
         
             encoding_method = st.selectbox(
@@ -262,7 +262,7 @@ def main():
             if encoding_method == "One-Hot Encoding":
                 drop_option = st.radio(
                     "Select Column Dropping Behavior",
-                    ["Drop first column", "Drop binary columns", "Keep all columns"],
+                    ["Drop first column in all features", "Drop first column if binary feature", "Keep all columns"],
                     index=2  # Default: Keep all columns
                 )
         
