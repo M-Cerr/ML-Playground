@@ -229,28 +229,31 @@ def main():
         # Categorical Data Encoding Section
         if st.sidebar.checkbox("Categorical Data Encoding"):
             st.write("### Encode Categorical Data")
-        
+
             # Retrieve categorical columns
             categorical_columns = st.session_state['categorical_columns'].get(selected_dataset_name, [])
-        
+
             # Ensure valid columns exist in the dataset
             available_columns = [col for col in categorical_columns if col in st.session_state['datasets'][selected_dataset_name].columns]
-        
-            # Preserve user-selected columns in session state (Fix Multi-Select Issue)
+
+            # Initialize session states for encoding
             if "selected_columns" not in st.session_state:
                 st.session_state["selected_columns"] = []
-        
-            # Ensure selected columns are valid & persist selection
+
+            if "temp_encoded_dataset" not in st.session_state:
+                st.session_state["temp_encoded_dataset"] = st.session_state['datasets'][selected_dataset_name].copy()
+
             selected_columns = st.multiselect(
                 "Select Columns to Encode",
                 options=available_columns,
-                default=st.session_state["selected_columns"], 
+                default=st.session_state["selected_columns"],  
                 help="Choose categorical columns to transform into numeric values."
             )
-    
-            # Simply update session state without forcing a rerun
-            st.session_state["selected_columns"] = selected_columns
-        
+
+            # Persist selection state
+            if selected_columns != st.session_state["selected_columns"]:
+                st.session_state["selected_columns"] = selected_columns
+
             encoding_method = st.selectbox(
                 "Select Encoding Method",
                 ["One-Hot Encoding"],
@@ -265,26 +268,22 @@ def main():
                     ["Drop first column in all features", "Drop first column if binary feature", "Keep all columns"],
                     index=2  # Default: Keep all columns
                 )
-        
-            # Ensure temp dataset only appears after encoding is applied
-            if "temp_encoded_dataset" not in st.session_state:
-                st.session_state["temp_encoded_dataset"] = None  # Set to None instead of copying dataset
-        
-            # Apply Encoding Temporarily (Does Not Update Main Table)
+
+            # Apply Encoding Without Resetting Previous Changes
             if st.button("Apply Encoding"):
                 try:
                     temp_df = apply_categorical_encoding(
-                        st.session_state['datasets'][selected_dataset_name],  # Apply on original dataset
+                        st.session_state["temp_encoded_dataset"],  # Use cumulative dataset
                         selected_columns,
                         encoding_method,
                         drop_option
                     )
-                    st.session_state["temp_encoded_dataset"] = temp_df  # Store temporary encoded dataset
-        
-                    st.success("Encoding applied! Review the changes below before confirming.")
+                    st.session_state["temp_encoded_dataset"] = temp_df  # Store updated dataset
+
+                    st.success("Encoding applied! You can continue encoding other columns or confirm changes.")
                 except Exception as e:
                     st.error(f"Error while encoding categorical data: {e}")
-        
+
             # Show Before & After Side-by-Side Comparison
             if st.session_state["temp_encoded_dataset"] is not None:
                 st.write("### Original vs. Encoded Dataset")
@@ -299,12 +298,28 @@ def main():
                     st.write("#### 🔹 Encoded Dataset (After Encoding)")
                     st.dataframe(st.session_state["temp_encoded_dataset"])
 
-                # Only Update the Main AgGrid Table When User Confirms Changes
+                # Only Update the Main Dataset When User Confirms
                 if st.button("Confirm & Update Dataset"):
-                    st.session_state['datasets'][selected_dataset_name] = st.session_state["temp_encoded_dataset"]
-                    st.success("Main dataset updated successfully!")
-                    del st.session_state["temp_encoded_dataset"]  # Clear temp dataset
-                    st.rerun()
+                    try:
+                        # Ensure only existing columns remain in session state
+                        dataset_columns = st.session_state["temp_encoded_dataset"].columns.tolist()
+                        st.session_state['categorical_columns'][selected_dataset_name] = [
+                            col for col in st.session_state['categorical_columns'].get(selected_dataset_name, []) if col in dataset_columns
+                        ]
+
+                        # Reset selected columns to prevent reference errors
+                        st.session_state["selected_columns"] = []
+
+                        # Update main dataset
+                        st.session_state['datasets'][selected_dataset_name] = st.session_state["temp_encoded_dataset"]
+                        st.success("Main dataset updated successfully!")
+
+                        # Clear temporary dataset & refresh UI
+                        del st.session_state["temp_encoded_dataset"]
+                        st.rerun()
+    
+                    except Exception as e:
+                        st.error(f"Error updating main dataset: {e}")
     
         else:
             st.write("⚠️ No categorical columns available for encoding.")

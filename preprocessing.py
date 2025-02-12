@@ -52,22 +52,22 @@ def apply_categorical_encoding(df, selected_columns, encoding_method, drop_optio
     Applies categorical encoding to the specified columns in the dataset.
     
     Parameters:
-    - df (pd.DataFrame): The original dataset.
+    - df (pd.DataFrame): The dataset being modified.
     - selected_columns (list): Columns to encode.
     - encoding_method (str): The encoding method ("One-Hot Encoding").
-    - drop_option (str): The option for dropping columns ("Drop first column", "Drop binary columns", "Keep all columns").
+    - drop_option (str): The option for dropping columns.
     
     Returns:
-    - pd.DataFrame: The dataset with encoded categorical variables.
+    - pd.DataFrame: The updated dataset with encoded categorical variables.
     """
     df_encoded = df.copy()
 
     if encoding_method == "One-Hot Encoding":
         # Determine drop behavior
         drop_strategy = None
-        if drop_option == "Drop first column":
+        if drop_option == "Drop first column in all features":
             drop_strategy = "first"
-        elif drop_option == "Drop binary columns":
+        elif drop_option == "Drop first column if binary feature":
             drop_strategy = "if_binary"
 
         encoder = OneHotEncoder(sparse_output=False, dtype=int, drop=drop_strategy)
@@ -76,7 +76,7 @@ def apply_categorical_encoding(df, selected_columns, encoding_method, drop_optio
         encoded_data = encoder.fit_transform(df_encoded[selected_columns])
         encoded_df = pd.DataFrame(encoded_data, columns=encoder.get_feature_names_out(selected_columns))
 
-        # Drop original categorical columns & merge with the main dataset
+        # Drop only selected categorical columns & merge with dataset
         df_encoded.drop(columns=selected_columns, inplace=True)
         df_encoded = pd.concat([df_encoded, encoded_df], axis=1)
 
