@@ -256,17 +256,44 @@ def main():
 
             encoding_method = st.selectbox(
                 "Select Encoding Method",
-                ["One-Hot Encoding"],
+                ["One-Hot Encoding", "Label Encoding", "Ordinal Encoding", "Count Encoding"],
                 help="Select how to encode categorical variables."
             )
 
-            # Additional Options for One-Hot Encoding
-            drop_option = None
+            # Additional Options for Each Encoding Type
+            encoding_params = {}
+
             if encoding_method == "One-Hot Encoding":
-                drop_option = st.radio(
+                encoding_params["drop_option"] = st.radio(
                     "Select Column Dropping Behavior",
                     ["Drop first column in all features", "Drop first column if binary feature", "Keep all columns"],
                     index=2  # Default: Keep all columns
+                )
+
+            elif encoding_method == "Label Encoding":
+                encoding_params["handle_unknown"] = st.radio(
+                    "Handling Unknown Categories",
+                    ["Error", "Assign -1", "Ignore"],
+                    index=1  # Default: Assign -1
+                )
+
+            elif encoding_method == "Ordinal Encoding":
+                st.write("Define Custom Order for Each Selected Column:")
+                encoding_params["custom_order"] = {}
+                for col in selected_columns:
+                    unique_values = st.session_state['datasets'][selected_dataset_name][col].dropna().unique().tolist()
+                    encoding_params["custom_order"][col] = st.multiselect(
+                        f"Define Order for `{col}`",
+                        options=unique_values,
+                        default=unique_values,  # Default to detected unique values
+                        help="Rearrange the order as needed."
+                    )
+
+            elif encoding_method == "Count Encoding":
+                encoding_params["apply_log"] = st.checkbox(
+                    "Apply Log Transformation",
+                    value=False,
+                    help="Enable to normalize large count variations."
                 )
 
             # Apply Encoding Without Resetting Previous Changes
@@ -276,7 +303,7 @@ def main():
                         st.session_state["temp_encoded_dataset"],  # Use cumulative dataset
                         selected_columns,
                         encoding_method,
-                        drop_option
+                        encoding_params
                     )
                     st.session_state["temp_encoded_dataset"] = temp_df  # Store updated dataset
 

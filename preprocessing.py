@@ -1,5 +1,6 @@
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder
+import numpy as np
 
 def handle_missing_values(df, column, method, custom_value=None, is_categorical=False):
     """
@@ -47,15 +48,15 @@ def handle_missing_values(df, column, method, custom_value=None, is_categorical=
     return df
 
 
-def apply_categorical_encoding(df, selected_columns, encoding_method, drop_option=None):
+def apply_categorical_encoding(df, selected_columns, encoding_method, encoding_params):
     """
     Applies categorical encoding to the specified columns in the dataset.
     
     Parameters:
     - df (pd.DataFrame): The dataset being modified.
     - selected_columns (list): Columns to encode.
-    - encoding_method (str): The encoding method ("One-Hot Encoding").
-    - drop_option (str): The option for dropping columns.
+    - encoding_method (str): The encoding method.
+    - encoding_params (dict): Additional parameters for encoding methods.
     
     Returns:
     - pd.DataFrame: The updated dataset with encoded categorical variables.
@@ -65,9 +66,9 @@ def apply_categorical_encoding(df, selected_columns, encoding_method, drop_optio
     if encoding_method == "One-Hot Encoding":
         # Determine drop behavior
         drop_strategy = None
-        if drop_option == "Drop first column in all features":
+        if encoding_params["drop_option"] == "Drop first column in all features":
             drop_strategy = "first"
-        elif drop_option == "Drop first column if binary feature":
+        elif encoding_params["drop_option"] == "Drop first column if binary feature":
             drop_strategy = "if_binary"
 
         encoder = OneHotEncoder(sparse_output=False, dtype=int, drop=drop_strategy)
@@ -79,5 +80,32 @@ def apply_categorical_encoding(df, selected_columns, encoding_method, drop_optio
         # Drop only selected categorical columns & merge with dataset
         df_encoded.drop(columns=selected_columns, inplace=True)
         df_encoded = pd.concat([df_encoded, encoded_df], axis=1)
+    
+    elif encoding_method == "Label Encoding":
+        for col in selected_columns:
+            encoder = LabelEncoder()
+            try:
+                df_encoded[col] = encoder.fit_transform(df_encoded[col])
+            except ValueError:
+                if encoding_params["handle_unknown"] == "Assign -1":
+                    df_encoded[col] = df_encoded[col].apply(lambda x: encoder.transform([x])[0] if x in encoder.classes_ else -1)
+                elif encoding_params["handle_unknown"] == "Ignore":
+                    continue
+                else:
+                    raise ValueError(f"Unknown category found in {col}")
+
+    elif encoding_method == "Ordinal Encoding":
+        for col in selected_columns:
+            if col in encoding_params["custom_order"]:
+                custom_order = encoding_params["custom_order"][col]
+                encoder = OrdinalEncoder(categories=[custom_order])
+                df_encoded[col] = encoder.fit_transform(df_encoded[[col]])
+
+    elif encoding_method == "Count Encoding":
+        for col in selected_columns:
+            counts = df_encoded[col].value_counts()
+            if encoding_params["apply_log"]:
+                counts = np.log1p(counts)  # Apply log transformation
+            df_encoded[col] = df_encoded[col].map(counts)
 
     return df_encoded
