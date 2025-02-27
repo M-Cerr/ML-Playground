@@ -15,6 +15,9 @@ from ui_main import display_dataset_selection_and_analysis
 from missing_value_handler import display_missing_value_replacement
 # Import Categorical Encoding UI
 from categorical_encoding_handler import display_categorical_encoding
+# Import Scaling & Normalization UI
+from scaling_handler import display_scaling_options
+
 
 
 # Streamlit app
@@ -41,10 +44,12 @@ def main():
         # Step 5: Categorical Data Encoding
         updated_df = display_categorical_encoding(selected_dataset_name, updated_df)
 
+        # Step 6: Scaling & Normalization
+        updated_df = display_scaling_options(selected_dataset_name, updated_df)
+
         # Update session state with the modified dataset
         st.session_state['datasets'][selected_dataset_name] = updated_df
 
-        st.sidebar.checkbox("Scaling")
 
 if __name__ == "__main__":
     main()
