@@ -130,6 +130,6 @@ def display_dataset_selection_and_analysis():
             st.session_state["issues"] = analyze_dataset(updated_df, st.session_state['categorical_columns'][selected_dataset_name])  # Recalculate missing values & mismatches
             st.rerun()  # Refresh UI to reflect updates
 
-        return selected_dataset_name, df, updated_df  # Return for further processing in app.py
+        return selected_dataset_name, df, updated_df, formatter  # Return for further processing in app.py
     
-    return selected_dataset_name, df, None
+    return selected_dataset_name, df, None, {}

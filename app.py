@@ -17,6 +17,8 @@ from missing_value_handler import display_missing_value_replacement
 from categorical_encoding_handler import display_categorical_encoding
 # Import Scaling & Normalization UI
 from scaling_handler import display_scaling_options
+# Import Train/Test Splitting UI
+from train_test_split_handler import display_train_test_split
 
 
 
@@ -33,7 +35,7 @@ def main():
         st.session_state['categorical_columns'] = {}
 
     # Step 1–3: Dataset selection, categorical column marking, and AgGrid table
-    selected_dataset_name, df, updated_df = display_dataset_selection_and_analysis()
+    selected_dataset_name, df, updated_df, my_format = display_dataset_selection_and_analysis()
 
     # Step 4: Missing Value Replacement (only runs if a dataset is selected)
     if selected_dataset_name and updated_df is not None:
@@ -46,6 +48,9 @@ def main():
 
         # Step 6: Scaling & Normalization
         updated_df = display_scaling_options(selected_dataset_name, updated_df)
+
+        # Step 7: Train/Test Splitting
+        display_train_test_split(selected_dataset_name, updated_df, my_format)
 
         # Update session state with the modified dataset
         st.session_state['datasets'][selected_dataset_name] = updated_df
