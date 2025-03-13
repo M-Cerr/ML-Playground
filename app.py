@@ -19,6 +19,9 @@ from categorical_encoding_handler import display_categorical_encoding
 from scaling_handler import display_scaling_options
 # Import Train/Test Splitting UI
 from train_test_split_handler import display_train_test_split
+# Import Outlier Detection UI
+from outlier_detection_handler import display_outlier_detection
+
 
 
 
@@ -49,7 +52,10 @@ def main():
         # Step 6: Scaling & Normalization
         updated_df = display_scaling_options(selected_dataset_name, updated_df)
 
-        # Step 7: Train/Test Splitting
+        # Step 7: Outlier Detection
+        updated_df = display_outlier_detection(selected_dataset_name, updated_df)
+
+        # Step 8: Train/Test Splitting
         display_train_test_split(selected_dataset_name, updated_df, my_format)
 
         # Update session state with the modified dataset
