@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from agstyler import draw_grid, highlight, PRECISION_TWO, PINLEFT
 from dataset_analysis import analyze_dataset
+from data_loader import load_user_dataset # For user uploads
 
 def display_dataset_selection_and_analysis():
     """
@@ -12,18 +13,43 @@ def display_dataset_selection_and_analysis():
         - selected_dataset_name: Name of the dataset the user selected.
         - df: The selected dataset (DataFrame).
         - updated_df: The dataset after user modifications in AgGrid.
+        - (Optional) A 'formatter' if you want to pass to train/test splitting or other steps.
     """
     st.title("ML Playground")
     st.write("Welcome to the ML Playground Tool :)")
+
+    # FILE UPLOADER FOR USER DATASETS 
+    st.subheader("Upload Your Own CSV (Optional)")
+    uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"], help="Upload a CSV file to add a new dataset.")
+    if uploaded_file is not None:
+        # Attempt to load & validate
+        df_new = load_user_dataset(uploaded_file)
+        if df_new is None:
+            st.error("⚠️ Failed to load your CSV. Please ensure it has valid headers and isn't corrupted.")
+        else:
+            # If successful, add to session_state
+            dataset_name = f"Uploaded – {uploaded_file.name}"
+            # If that dataset name already exists, user might be re-uploading or overwriting
+            if dataset_name in st.session_state['datasets']:
+                st.warning(f"A dataset named '{dataset_name}' was already present. Overwriting it now. Click to X icon next to the uploaded file above to prevent this message.")
+            st.session_state['datasets'][dataset_name] = df_new
+            if 'categorical_columns' not in st.session_state:
+                st.session_state['categorical_columns'] = {}
+            if dataset_name not in st.session_state['categorical_columns']:
+                st.session_state['categorical_columns'][dataset_name] = []
+            st.success(f"✅ Uploaded and added dataset: **{dataset_name}**. You can select it below.")
     
+    # DATASET SELECTION DROPDOWN 
     selected_dataset_name = st.selectbox(
         "Choose a dataset to view",
         options=list(st.session_state['datasets'].keys())
     )
 
+    # If the user didn't pick anything, or no dataset in memory
     if not selected_dataset_name:
         return None, None, None  # Prevents errors when no dataset is selected
     
+    # Retrieve the selected dataset
     df = st.session_state['datasets'][selected_dataset_name]
     st.write(f"Selected Dataset: {selected_dataset_name}")
 
