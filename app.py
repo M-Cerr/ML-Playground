@@ -21,6 +21,8 @@ from scaling_handler import display_scaling_options
 from train_test_split_handler import display_train_test_split
 # Import Outlier Detection UI
 from outlier_detection_handler import display_outlier_detection
+# Import History Modal UI
+from ui_history import display_history_ui
 
 
 
@@ -36,9 +38,13 @@ def main():
         st.session_state['datasets'] = load_sample_datasets()
     if 'categorical_columns' not in st.session_state:
         st.session_state['categorical_columns'] = {}
+    if "histories" not in st.session_state:
+        st.session_state["histories"] = {}  # mapping from dataset_name -> DatasetHistory
 
     # Step 1–3: Dataset selection, categorical column marking, and AgGrid table
     selected_dataset_name, df, updated_df, my_format = display_dataset_selection_and_analysis()
+    if selected_dataset_name:
+        display_history_ui(selected_dataset_name)
 
     # Step 4: Missing Value Replacement (only runs if a dataset is selected)
     if selected_dataset_name and updated_df is not None:

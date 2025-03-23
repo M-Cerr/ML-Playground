@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from preprocessing import handle_missing_values
 from agstyler import draw_grid
+from history_manager import DatasetHistory, record_new_change
+
 
 def display_missing_value_replacement(selected_dataset_name, df, issues):
     """
@@ -99,6 +101,8 @@ def display_missing_value_replacement(selected_dataset_name, df, issues):
                         )
 
                     st.success("Missing values handled successfully!")
+                    record_new_change(selected_dataset_name, st.session_state['datasets'][selected_dataset_name], "Missing Value Replacement tool used")
+                    st.success("Here is the second part for debug")
                     st.rerun()  # Refresh the page to update the grid
                 except Exception as e:
                     st.error(f"Error while handling missing values: {e}")

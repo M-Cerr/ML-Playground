@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from history_manager import DatasetHistory, record_new_change
+
 
 def display_scaling_options(selected_dataset_name, df):
     """
@@ -80,6 +82,11 @@ def display_scaling_options(selected_dataset_name, df):
                 try:
                     # Update main dataset
                     st.session_state["datasets"][selected_dataset_name] = st.session_state["temp_scaled_dataset"]
+                    record_new_change(
+                        selected_dataset_name,
+                        st.session_state["temp_scaled_dataset"],
+                        "Scaling tool changes confirmed."
+                    )
                     st.success("Main dataset updated successfully!")
 
                     # Clear temporary dataset & refresh UI

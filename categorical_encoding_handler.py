@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from preprocessing import apply_categorical_encoding
+from history_manager import DatasetHistory, record_new_change
 
 def display_categorical_encoding(selected_dataset_name, df):
     """
@@ -127,6 +128,12 @@ def display_categorical_encoding(selected_dataset_name, df):
 
                     # Update main dataset
                     st.session_state['datasets'][selected_dataset_name] = st.session_state["temp_encoded_dataset"]
+                    new_df = st.session_state["temp_encoded_dataset"]
+                    record_new_change(
+                        selected_dataset_name,
+                        new_df,
+                        "Categorical encoding change confirmed."
+                    )
                     st.success("Main dataset updated successfully!")
 
                     # Clear temporary dataset & refresh UI

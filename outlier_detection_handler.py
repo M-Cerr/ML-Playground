@@ -1,8 +1,8 @@
-# outlier_detection_handler.py
-
 import streamlit as st
 import pandas as pd
 import numpy as np
+from history_manager import DatasetHistory, record_new_change
+
 
 def detect_outliers_zscore(df, col, threshold=3.0):
     """
@@ -139,6 +139,11 @@ def display_outlier_detection(selected_dataset_name, df):
 
             # finalize
             st.session_state['datasets'][selected_dataset_name] = df
+            record_new_change(
+                selected_dataset_name,
+                df,
+                "Outlier Tool used."
+            )
             # clear ephemeral sets
             st.session_state["outlier_indices"].clear()
             # move to phase 3

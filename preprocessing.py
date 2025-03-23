@@ -1,6 +1,8 @@
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder
 import numpy as np
+from history_manager import DatasetHistory, record_new_change
+
 
 def handle_missing_values(df, column, method, custom_value=None, is_categorical=False):
     """
