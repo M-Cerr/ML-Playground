@@ -42,9 +42,11 @@ def main():
         st.session_state["histories"] = {}  # mapping from dataset_name -> DatasetHistory
 
     # Step 1–3: Dataset selection, categorical column marking, and AgGrid table
-    selected_dataset_name, df, updated_df, my_format = display_dataset_selection_and_analysis()
+    selected_dataset_name, display_title, df, updated_df, my_format = display_dataset_selection_and_analysis()
     if selected_dataset_name:
-        display_history_ui(selected_dataset_name)
+        # Only display history UI if the user has confirmed categorical columns.
+        if st.session_state.get(f"{selected_dataset_name}_done", False):
+            display_history_ui(selected_dataset_name)
 
     # Step 4: Missing Value Replacement (only runs if a dataset is selected)
     if selected_dataset_name and updated_df is not None:

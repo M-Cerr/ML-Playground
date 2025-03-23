@@ -29,6 +29,9 @@ def display_history_ui(dataset_name):
 
     #st.write("DEBUG: display_history_ui called for", dataset_name)
 
+    if not st.session_state.get(f"{dataset_name}_done", False):
+        return  # Do not display the button until the dataset is confirmed
+
     normalized = normalize_dataset_name(dataset_name)
     # Store the normalized dataset name in session state for modal purposes.
     st.session_state["current_history_dataset"] = normalized

@@ -4,7 +4,7 @@ from agstyler import draw_grid, highlight, PRECISION_TWO, PINLEFT
 from dataset_analysis import analyze_dataset
 from data_loader import load_user_dataset # For user uploads
 from history_manager import DatasetHistory, record_new_change
-from ui_history import display_history_ui
+
 
 # Helper: Normalize dataset names for keys (remove spaces and lowercase)
 def normalize_dataset_name(name):
@@ -21,6 +21,30 @@ def ensure_history_for_dataset(normalized_name):
     if normalized_name not in st.session_state.get("histories", {}):
         st.session_state.setdefault("histories", {})[normalized_name] = DatasetHistory(max_size=5)
 
+def update_sample_dataset_keys():
+    """
+    Ensure that every dataset in st.session_state['datasets'] has a normalized key.
+    For any dataset whose key is not already normalized (i.e. contains spaces or uppercase letters),
+    create a new key (normalized) and update the dataset_titles mapping.
+    """
+    if "datasets" not in st.session_state:
+        return
+    titles = ensure_dataset_titles()
+    new_datasets = {}
+    for key, df in st.session_state['datasets'].items():
+        normalized = normalize_dataset_name(key)
+        # If the key is already normalized, it should equal its normalized version.
+        # If not, update the mapping.
+        if key != normalized:
+            titles[normalized] = key  # preserve the original for display
+            new_datasets[normalized] = df
+        else:
+            # For keys that are already normalized, ensure they exist in titles.
+            if normalized not in titles:
+                titles[normalized] = key
+            new_datasets[normalized] = df
+    st.session_state['datasets'] = new_datasets
+
 def display_dataset_selection_and_analysis():
     """
     Handles dataset selection and user setup.
@@ -33,6 +57,9 @@ def display_dataset_selection_and_analysis():
     """
     st.title("ML Playground")
     st.write("Welcome to the ML Playground Tool :)")
+
+    # First, update sample dataset keys so they are normalized.
+    update_sample_dataset_keys()
     
     # FILE UPLOADER FOR USER DATASETS 
     st.subheader("Upload Your Own CSV (Optional)")
@@ -61,15 +88,13 @@ def display_dataset_selection_and_analysis():
     
     # Build a dictionary mapping display titles to normalized keys.
     titles = ensure_dataset_titles()
-    # If no titles are present (e.g. only sample datasets exist), we use the keys in st.session_state['datasets']
-    if not titles:
-        for key in st.session_state.get('datasets', {}).keys():
-            titles[key] = key  # Use normalized key as display title if no custom title exists
+
+    # Use the mapping from our session_state datasets.
+    option_dict = {titles[key]: key for key in st.session_state.get('datasets', {})}
     
-    # Create a mapping for the selectbox: display_title -> normalized key.
-    option_dict = {display: norm for norm, display in titles.items()}
     # Selectbox shows display titles.
     selected_display = st.selectbox("Choose a dataset to view", options=list(option_dict.keys()))
+    
     # Retrieve the normalized key.
     selected_dataset_name = option_dict[selected_display]
     
@@ -193,6 +218,6 @@ def display_dataset_selection_and_analysis():
             st.session_state["issues"] = analyze_dataset(updated_df, st.session_state['categorical_columns'][selected_dataset_name])  # Recalculate missing values & mismatches
             st.rerun()  # Refresh UI to reflect updates
 
-        return selected_dataset_name, df, updated_df, formatter  # Return for further processing in app.py
+        return selected_dataset_name, display_title, df, updated_df, formatter  # Return for further processing in app.py
     
-    return selected_dataset_name, df, None, {}
+    return selected_dataset_name, display_title, df, None, {}
