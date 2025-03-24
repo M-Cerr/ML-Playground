@@ -27,8 +27,6 @@ def display_history_ui(dataset_name):
     Displays the floating 'History' button. When clicked, it directly opens the modal dialog.
     """
 
-    #st.write("DEBUG: display_history_ui called for", dataset_name)
-
     if not st.session_state.get(f"{dataset_name}_done", False):
         return  # Do not display the button until the dataset is confirmed
 
@@ -36,12 +34,7 @@ def display_history_ui(dataset_name):
     # Store the normalized dataset name in session state for modal purposes.
     st.session_state["current_history_dataset"] = normalized
 
-    # Retrieve or create the persistent placeholder for the floating button.
-    if "history_button_placeholder" not in st.session_state:
-        st.session_state["history_button_placeholder"] = st.empty()
-    placeholder = st.session_state["history_button_placeholder"]
-
-    placeholder.markdown(f"""
+    st.markdown(f"""
     <style>
     /* We style the button associated with key="historyfloating" */
     .st-key-historyfloating_{normalized} button {{

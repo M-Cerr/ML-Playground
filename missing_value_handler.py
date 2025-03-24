@@ -3,6 +3,8 @@ import pandas as pd
 from preprocessing import handle_missing_values
 from agstyler import draw_grid
 from history_manager import DatasetHistory, record_new_change
+from ui_explanations import display_section_header_with_help
+
 
 
 def display_missing_value_replacement(selected_dataset_name, df, issues):
@@ -46,7 +48,12 @@ def display_missing_value_replacement(selected_dataset_name, df, issues):
 
     # Missing Values Section
     if st.sidebar.checkbox("Missing Value Replacement"):
-        st.write("### Handle Missing Values")
+        display_section_header_with_help(
+            "Handle Missing Values",
+            "What does this tool do?",
+            "This section allows you to replace missing values.\n\n For numeric columns, you can choose to fill missing values with the mean, median, mode, or a custom value.\n\n For categorical columns, mode or a custom value is used.\n\n Choose the appropriate method from the dropdowns and click 'Apply Missing Value Fixes'.",
+            "help_missing_values"  # This key must be unique across your app
+        )
 
         missing_columns = list(issues["missing_values"].keys())
 
