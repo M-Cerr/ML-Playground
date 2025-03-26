@@ -23,8 +23,8 @@ from train_test_split_handler import display_train_test_split
 from outlier_detection_handler import display_outlier_detection
 # Import History Modal UI
 from ui_history import display_history_ui
-
-
+# Import Optional (MI, Feature Interactions) UI
+from optional_features_handler import display_optional_features
 
 
 # Streamlit app
@@ -63,7 +63,10 @@ def main():
         # Step 7: Outlier Detection
         updated_df = display_outlier_detection(selected_dataset_name, updated_df)
 
-        # Step 8: Train/Test Splitting
+        # Step 8: Mutual Information & Feature Interaction Display
+        updated_df = display_optional_features(selected_dataset_name, updated_df)
+
+        # Step 9: Train/Test Splitting
         display_train_test_split(selected_dataset_name, updated_df, my_format)
 
         # Update session state with the modified dataset
