@@ -136,6 +136,7 @@ def display_hyperparameter_tuning(selected_dataset_name):
 
     if show_more:
         # Instantiate a temporary model with the essential parameters.
+        from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
         if model_choice == "Linear Regression":
             temp_model = LinearRegression(**params)
             default_keys = {"fit_intercept", "positive"}
@@ -167,6 +168,16 @@ def display_hyperparameter_tuning(selected_dataset_name):
     
     # When the user clicks "Run Model", train and evaluate the model.
     if st.button("Run Model"):
+
+        # If drop_primary is selected and primary_key exists, drop it from features.
+        if drop_primary and primary_key in X_train.columns:
+            X_train = X_train.drop(columns=[primary_key])
+        if drop_primary and primary_key in X_test.columns:
+            X_test = X_test.drop(columns=[primary_key])
+        
+        # Imports Models Locally
+        from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+        
         # Instantiate the chosen model with the complete set of parameters.
         if model_choice == "Linear Regression":
             model = LinearRegression(**params)
@@ -179,12 +190,6 @@ def display_hyperparameter_tuning(selected_dataset_name):
         else:
             st.error("Unknown model selection.")
             return None, None
-        
-        # If drop_primary is selected and primary_key exists, drop it from features.
-        if drop_primary and primary_key in X_train.columns:
-            X_train = X_train.drop(columns=[primary_key])
-        if drop_primary and primary_key in X_test.columns:
-            X_test = X_test.drop(columns=[primary_key])
         
         with st.spinner("Training model..."):
             model.fit(X_train, y_train)
@@ -200,17 +205,133 @@ def display_hyperparameter_tuning(selected_dataset_name):
         with col1:
             st.metric("Train MSE", f"{mse_train:.2f}")
             st.metric("Train R²", f"{r2_train:.3f}")
+            # Create a chart for training metrics.
+            train_df = pd.DataFrame({
+                "Metric": ["MSE", "R²"],
+                "Value": [mse_train, r2_train]
+            })
+            train_chart = alt.Chart(train_df).mark_bar().encode(
+                x=alt.X("Metric:N", title="Train Metric"),
+                y=alt.Y("Value:Q", title="Value"),
+                tooltip=["Metric", "Value"]
+            ).properties(
+                width=200,
+                height=200,
+                title="Training Metrics"
+            )
+            st.altair_chart(train_chart, use_container_width=True)
+
         with col2:
             st.metric("Test MSE", f"{mse_test:.2f}")
             st.metric("Test R²", f"{r2_test:.3f}")
+            test_df = pd.DataFrame({
+                "Metric": ["MSE", "R²"],
+                "Value": [mse_test, r2_test]
+            })
+            test_chart = alt.Chart(test_df).mark_bar().encode(
+                x=alt.X("Metric:N", title="Test Metric"),
+                y=alt.Y("Value:Q", title="Value"),
+                tooltip=["Metric", "Value"]
+            ).properties(
+                width=200,
+                height=200,
+                title="Testing Metrics"
+            )
+            st.altair_chart(test_chart, use_container_width=True)
         
-        metrics_df = pd.DataFrame({
-            "MSE": [mse_train, mse_test],
-            "R²": [r2_train, r2_test]
-        }, index=["Train", "Test"])
-        st.bar_chart(metrics_df)
+        # Additional help explanations for the metrics.
+        st.markdown("""
+        **Performance Metrics Explained:**
+        - **MSE (Mean Squared Error):** Lower values indicate better fit; it represents the average squared difference between predicted and actual values.
+        - **R² (Coefficient of Determination):** Values range from 0 to 1 (higher is better); it indicates the proportion of variance in the target that is predictable from the features.
+        """)
         
-        st.success("Model training complete.")
+        # Train/Test Loss Graphs (Line Charts)
+        train_residuals = y_train - y_pred_train
+        test_residuals = y_test - y_pred_test
+        # Create DataFrames for plotting: Predicted values vs Residuals.
+        train_plot_df = pd.DataFrame({
+            "Predicted": y_pred_train,
+            "Residual": train_residuals
+        })
+        test_plot_df = pd.DataFrame({
+            "Predicted": y_pred_test,
+            "Residual": test_residuals
+        })
+
+        st.markdown("### Residual Plots")
+        col3, col4 = st.columns(2)
+        with col3:
+            # Scatter plot for training residuals.
+            train_scatter = alt.Chart(train_plot_df).mark_point().encode(
+                x=alt.X("Predicted:Q", title="Predicted Values"),
+                y=alt.Y("Residual:Q", title="Residuals")
+            ).properties(
+                width=300,
+                height=200,
+                title="Training Residuals"
+            )
+            # Horizontal rule at zero.
+            train_rule = alt.Chart(train_plot_df).mark_rule(color='red').encode(y=alt.Y("0:Q"))
+            st.altair_chart(train_scatter + train_rule, use_container_width=True)
+        with col4:
+            # Scatter plot for test residuals.
+            test_scatter = alt.Chart(test_plot_df).mark_point().encode(
+                x=alt.X("Predicted:Q", title="Predicted Values"),
+                y=alt.Y("Residual:Q", title="Residuals")
+            ).properties(
+                width=300,
+                height=200,
+                title="Testing Residuals"
+            )
+            test_rule = alt.Chart(test_plot_df).mark_rule(color='red').encode(y=alt.Y("0:Q"))
+            st.altair_chart(test_scatter + test_rule, use_container_width=True)
+
+        st.markdown("""
+        **Residual Plot Explanation:**
+        - Each point represents a prediction. The x-axis shows the predicted value, and the y-axis shows the residual (actual minus predicted).
+        - Ideally, the points should be randomly scattered around the horizontal line at 0.
+        - Systematic patterns (like curvature) may indicate that the model isn’t capturing some underlying relationships.
+        """)
+        
+        # Model Comparison: Check if a previous model was saved.
+        if "saved_model_metrics" in st.session_state:
+            saved = st.session_state["saved_model_metrics"]
+            comp_df = pd.DataFrame({
+                "Metric": ["Train MSE", "Train R²", "Test MSE", "Test R²"],
+                "Saved": [saved["mse_train"], saved["r2_train"], saved["mse_test"], saved["r2_test"]],
+                "Current": [mse_train, r2_train, mse_test, r2_test]
+            })
+            def compare_metric(metric, saved_val, current_val):
+                # For MSE, lower is better; for R², higher is better.
+                if metric in ["Train MSE", "Test MSE"]:
+                    if current_val < saved_val:
+                        return "🔼"
+                    elif current_val > saved_val:
+                        return "🔽"
+                    else:
+                        return "➖"
+                else:
+                    if current_val > saved_val:
+                        return "🔼"
+                    elif current_val < saved_val:
+                        return "🔽"
+                    else:
+                        return "➖"
+            comp_df["Improvement"] = [compare_metric(row["Metric"], row["Saved"], row["Current"]) for index, row in comp_df.iterrows()]
+            st.markdown("### Model Comparison")
+            st.dataframe(comp_df)
+            if st.button("Save Current Model Settings (Overwrite Saved Model)"):
+                st.session_state["saved_model_settings"] = {"model_choice": model_choice, "params": params.copy()}
+                st.session_state["saved_model_metrics"] = {"mse_train": mse_train, "r2_train": r2_train, "mse_test": mse_test, "r2_test": r2_test}
+                st.success("Current model settings saved.")
+                st.rerun()
+        else:
+            # If no saved model, save the current settings.
+            st.session_state["saved_model_settings"] = {"model_choice": model_choice, "params": params.copy()}
+            st.session_state["saved_model_metrics"] = {"mse_train": mse_train, "r2_train": r2_train, "mse_test": mse_test, "r2_test": r2_test}
+
+        st.success("Model training complete. You can modify the parameters and re-run the model as you'd like.")
         return model, {"mse_train": mse_train, "mse_test": mse_test, "r2_train": r2_train, "r2_test": r2_test}
     
     return None, None

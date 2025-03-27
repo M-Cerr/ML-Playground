@@ -242,4 +242,4 @@ def display_dataset_selection_and_analysis():
 
         return selected_dataset_name, display_title, df, updated_df, formatter, primary_key, target_feature  # Return for further processing in app.py
     
-    return selected_dataset_name, display_title, df, None, {}
+    return selected_dataset_name, display_title, df, None, {}, primary_key, target_feature
