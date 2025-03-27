@@ -25,6 +25,8 @@ from outlier_detection_handler import display_outlier_detection
 from ui_history import display_history_ui
 # Import Optional (MI, Feature Interactions) UI
 from optional_features_handler import display_optional_features
+# Import Hyperparameter Tuning and Model Testing UI
+from hyperparameter_tuning_handler import display_hyperparameter_tuning
 
 
 # Streamlit app
@@ -42,7 +44,7 @@ def main():
         st.session_state["histories"] = {}  # mapping from dataset_name -> DatasetHistory
 
     # Step 1–3: Dataset selection, categorical column marking, and AgGrid table
-    selected_dataset_name, display_title, df, updated_df, my_format = display_dataset_selection_and_analysis()
+    selected_dataset_name, display_title, df, updated_df, my_format, primary_key, target = display_dataset_selection_and_analysis()
     if selected_dataset_name:
         # Only display history UI if the user has confirmed categorical columns.
         if st.session_state.get(f"{selected_dataset_name}_done", False):
@@ -68,6 +70,10 @@ def main():
 
         # Step 9: Train/Test Splitting
         display_train_test_split(selected_dataset_name, updated_df, my_format)
+
+        # After train/test split:
+        if "train_dataset" in st.session_state and "test_dataset" in st.session_state:
+            model, metrics = display_hyperparameter_tuning(selected_dataset_name)
 
         # Update session state with the modified dataset
         st.session_state['datasets'][selected_dataset_name] = updated_df

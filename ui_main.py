@@ -112,21 +112,43 @@ def display_dataset_selection_and_analysis():
     # Initialize categorical columns for this dataset if not already set
     if selected_dataset_name not in st.session_state['categorical_columns']:
         st.session_state['categorical_columns'][selected_dataset_name] = []
+     
+    st.write("## Specify Feature Roles")
+    
+    #2 column layout for user feature labeling
+    col1, col2 = st.columns(2)
 
-    # Multi-select dropdown for categorical columns
-    selected_categorical_columns = st.multiselect(
-        "Select Categorical Columns",
-        options=df.columns.tolist(),
-        default=st.session_state['categorical_columns'][selected_dataset_name],
-        help="Choose columns that should be treated as categorical."
-    )
+    with col2:
+        # Multi-select dropdown for categorical columns
+        selected_categorical_columns = st.multiselect(
+            "Select Categorical Columns",
+            options=df.columns.tolist(),
+            default=st.session_state['categorical_columns'][selected_dataset_name],
+            help="Choose columns that should be treated as categorical."
+        )
+
+    with col1:
+        # Only after confirming categorical columns, ask for additional feature role information.
+        primary_key = None
+        target_feature = None
+        # if st.session_state.get(f"{selected_dataset_name}_done"):
+        # Primary Key is optional; add "None" as first option.
+        primary_key = st.selectbox("Select Primary Key (Optional)", options=["None"] + df.columns.tolist(), key="primary_key")
+        target_feature = st.selectbox("Select Target Feature", options=df.columns.tolist(), key="target_feature")
+            
 
     # Add an "Update" button to save changes
-    if st.button("Update Categorical Columns"):
+    if st.button("Finalize Target Feature & Categorical Columns"):
         st.session_state['categorical_columns'][selected_dataset_name] = selected_categorical_columns
         ensure_history_for_dataset(selected_dataset_name) # Create the history for the confirmed table (re-do if Categorical columns are re-chosen later)
         st.success(f"Updated categorical columns: {', '.join(selected_categorical_columns)}")
         st.session_state[f"{selected_dataset_name}_done"] = True
+        # Save these selections in session state (for later use in model tuning, etc.)
+        if primary_key == "None":
+            primary_key = None
+        st.session_state[f"{selected_dataset_name}_primary_key"] = primary_key
+        st.session_state[f"{selected_dataset_name}_target_feature"] = target_feature
+
 
     # Proceed with dataset analysis if user confirmed selection
     if st.session_state.get(f"{selected_dataset_name}_done"):
@@ -218,6 +240,6 @@ def display_dataset_selection_and_analysis():
             st.session_state["issues"] = analyze_dataset(updated_df, st.session_state['categorical_columns'][selected_dataset_name])  # Recalculate missing values & mismatches
             st.rerun()  # Refresh UI to reflect updates
 
-        return selected_dataset_name, display_title, df, updated_df, formatter  # Return for further processing in app.py
+        return selected_dataset_name, display_title, df, updated_df, formatter, primary_key, target_feature  # Return for further processing in app.py
     
     return selected_dataset_name, display_title, df, None, {}
