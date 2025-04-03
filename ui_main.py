@@ -56,7 +56,7 @@ def display_dataset_selection_and_analysis():
       - formatter: AgGrid formatting dictionary.
     """
     st.title("ML Playground")
-    st.write("Welcome to the ML Playground Tool :)")
+    st.write("Welcome to the ML Playground Interactive Tool!")
 
     # First, update sample dataset keys so they are normalized.
     update_sample_dataset_keys()
