@@ -78,7 +78,7 @@ def display_scaling_options(selected_dataset_name, df):
                 st.dataframe(st.session_state["temp_scaled_dataset"])
 
             # Only Update Main Dataset When User Confirms
-            if st.button("Confirm & Update Dataset"):
+            if st.button("Confirm & Update Dataset", key="scalingConfirm"):
                 try:
                     # Update main dataset
                     st.session_state["datasets"][selected_dataset_name] = st.session_state["temp_scaled_dataset"]

@@ -89,7 +89,8 @@ def display_categorical_encoding(selected_dataset_name, df):
         if st.button("Apply Encoding"):
             try:
                 temp_df = apply_categorical_encoding(
-                    st.session_state["temp_encoded_dataset"],  # Use cumulative dataset
+                    #st.session_state["temp_encoded_dataset"],  # Use cumulative dataset
+                    df,
                     selected_columns,
                     encoding_method,
                     encoding_params

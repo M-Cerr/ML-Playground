@@ -15,7 +15,7 @@ def display_feature_engineering(selected_dataset_name, df):
     Returns:
         The updated DataFrame (with the new feature appended, if confirmed).
     """
-    st.subheader("Feature Engineering")
+    st.subheader("Feature Interaction")
     st.info("Create a new feature by combining two existing features.")
 
     # Ensure persistent storage for new features if not already created.
