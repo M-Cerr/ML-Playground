@@ -49,7 +49,7 @@ def display_scaling_options(selected_dataset_name, df):
         # Apply Scaling
         if st.button("Apply Scaling"):
             try:
-                temp_df = st.session_state["temp_scaled_dataset"].copy()
+                temp_df = df.copy()
 
                 if scaling_method == "Min-Max Scaling (0-1)":
                     scaler = MinMaxScaler()
