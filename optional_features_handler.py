@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from mutual_information_handler import display_mutual_information
 from feature_engineering_handler import display_feature_engineering
+from ui_explanations import display_section_header_with_help
+
 
 def display_optional_features(selected_dataset_name, df):
     """
@@ -28,8 +30,12 @@ def display_optional_features(selected_dataset_name, df):
     # In Column 1: Mutual Information Tool
     if enable_mi:
         with col1:
-            st.subheader("Mutual Information")
-            st.write("View MI scores between features and the target.")
+            st.subheader("Mutual Information Analysis")
+            with st.expander(f"What does this tool do?", expanded=False):
+              st.write("**Mutual Information (MI):** MI quantifies the amount of shared information between a feature and the target variable. "
+              "A higher MI score means that the feature provides more predictive power about the target. "
+              "Use these scores to identify the most relevant features for your model.")
+            
             mi_results = display_mutual_information(selected_dataset_name, df)
             # Optionally, store mi_results or display additional options.
             st.markdown("---")

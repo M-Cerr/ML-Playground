@@ -23,9 +23,14 @@ def display_feature_engineering(selected_dataset_name, df):
         st.session_state["fe_new_df"] = df.copy()
     if "created_features" not in st.session_state:
         st.session_state["created_features"] = []
+    if "fe_confirmed" not in st.session_state:
+        st.session_state["fe_confirmed"] = False
 
     # Filter columns to only numeric columns.
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    #To filter out primary key
+    primary_key = st.session_state.get(f"{selected_dataset_name}_primary_key")
+
     if not numeric_cols:
         st.warning("No numeric features available for feature engineering.")
         return df
@@ -33,6 +38,8 @@ def display_feature_engineering(selected_dataset_name, df):
     # Arrange the UI in three columns.
     col1, col2, col3 = st.columns([3, 2, 3])
     
+    numeric_cols = [col for col in numeric_cols if col != primary_key]
+
     with col1:
         cols = df.columns.tolist()
         feature1 = st.selectbox("Select First Feature", options=numeric_cols, key="fe_feature1")
@@ -70,6 +77,8 @@ def display_feature_engineering(selected_dataset_name, df):
                     if new_feature_name not in st.session_state["created_features"]:
                         st.session_state["created_features"].append(new_feature_name)
                     st.success(f"Preview: New feature '{new_feature_name}' created.")
+                    # Reset confirmation flag so that the main dataset isn't updated yet.
+                    st.session_state["fe_confirmed"] = False
                 
                 except Exception as e:
                     st.error(f"Error creating new feature: {e}")
@@ -82,9 +91,10 @@ def display_feature_engineering(selected_dataset_name, df):
                 updated_df = st.session_state["fe_new_df"]
                 record_new_change(selected_dataset_name, updated_df, "Feature Engineering: New features confirmed.")
                 st.success("Main dataset updated with new features!")
-                # Clear the temporary new dataset and created features storage.
-                st.session_state["fe_new_df"] = updated_df.copy()
-                st.session_state["created_features"] = []
+                # Mark that the features have been confirmed.
+                st.session_state["fe_confirmed"] = True
+                # Optionally clear the created features list if desired.
+                st.session_state["created_features"] = []   
                 st.rerun()
             except Exception as e:
                 st.error(f"Error updating main dataset: {e}")
@@ -114,4 +124,9 @@ def display_feature_engineering(selected_dataset_name, df):
             except Exception as e:
                 st.error(f"Error deleting feature: {e}")
     
-    return st.session_state["fe_new_df"]
+    # Only return the temporary engineered features if they have been confirmed.
+    if st.session_state.get("fe_confirmed", False):
+        return st.session_state["fe_new_df"]
+    else:
+        # Otherwise, return the original main dataset.
+        return df

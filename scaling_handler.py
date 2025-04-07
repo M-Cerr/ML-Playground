@@ -23,6 +23,16 @@ def display_scaling_options(selected_dataset_name, df):
         # Identify numeric columns
         numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
 
+        # Retrieve the original columns for the dataset (set in ui_main.py)
+        original_cols = st.session_state.get("original_columns", {}).get(selected_dataset_name, [])
+        primary_key = st.session_state.get(f"{selected_dataset_name}_primary_key")
+        target_feature = st.session_state.get(f"{selected_dataset_name}_target_feature")
+        # Calculate encoded features as those that are present now but were not in the original dataset.
+        encoded_features = list(set(df.columns) - set(original_cols))
+    
+        # Filter out the primary key, target feature, and encoded features.
+        numeric_columns = [col for col in numeric_columns if col != primary_key and col != target_feature and col not in encoded_features]
+
         if not numeric_columns:
             st.warning("No numeric columns found in this dataset.")
             return df

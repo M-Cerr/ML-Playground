@@ -61,13 +61,29 @@ def display_outlier_detection(selected_dataset_name, df):
 
     phase = st.session_state["outlier_phase"]
 
+    # Retrieve original columns and primary key / target feature.
+    original_cols = st.session_state.get("original_columns", {}).get(selected_dataset_name, [])
+    primary_key = st.session_state.get(f"{selected_dataset_name}_primary_key")
+    #target_feature = st.session_state.get(f"{selected_dataset_name}_target_feature")
+    encoded_features = list(set(df.columns) - set(original_cols))
+
     # ---------------------------------------------
     # PHASE 1: DETECTION SETUP & "COMPUTE OUTLIERS"
     # ---------------------------------------------
     if phase == 1:
         st.write("### Phase 1: Detect Outliers")
-        method = st.radio("Detection Method", ["Z-score", "IQR"])
+        method = st.radio(
+            "Detection Method", 
+            ["Z-score", "IQR"],
+            help=(
+                "**Z-score:** Flags points that are a specified number of standard deviations away from the mean (useful for normally distributed data).\n\n"
+                "**IQR:** Uses the interquartile range (IQR) to identify outliers (less affected by extreme values)."
+            )
+        )
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        # Filter out primary key, and encoded features.
+        default_cols = [col for col in numeric_cols if col != primary_key and col not in encoded_features]
+
         if not numeric_cols:
             st.warning("No numeric columns found for outlier detection.")
             return df
@@ -75,7 +91,7 @@ def display_outlier_detection(selected_dataset_name, df):
         chosen_cols = st.multiselect(
             "Select numeric columns:",
             numeric_cols,
-            default=numeric_cols
+            default=default_cols
         )
 
         if st.button("Compute Outliers"):

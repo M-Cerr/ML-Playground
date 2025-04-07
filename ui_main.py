@@ -149,6 +149,10 @@ def display_dataset_selection_and_analysis():
         st.session_state[f"{selected_dataset_name}_primary_key"] = primary_key
         st.session_state[f"{selected_dataset_name}_target_feature"] = target_feature
 
+    if "original_columns" not in st.session_state:
+        st.session_state["original_columns"] = {}
+    if selected_dataset_name not in st.session_state["original_columns"]:
+        st.session_state["original_columns"][selected_dataset_name] = list(df.columns)
 
     # Proceed with dataset analysis if user confirmed selection
     if st.session_state.get(f"{selected_dataset_name}_done"):

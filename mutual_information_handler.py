@@ -12,10 +12,16 @@ def display_mutual_information(selected_dataset_name, df):
     Returns:
         mi_df: A DataFrame of mutual information scores.
     """
-    st.subheader("Mutual Information Analysis")
+    #st.subheader("Analysis")
     
     # Determine numeric columns in df.
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    #To filter out primary key
+    primary_key = st.session_state.get(f"{selected_dataset_name}_primary_key")
+    #To filter out any encoded features
+    original_cols = st.session_state.get("original_columns", {}).get(selected_dataset_name, [])
+    encoded_features = list(set(df.columns) - set(original_cols))
+
     if not numeric_cols:
         st.warning("No numeric features available for mutual information analysis.")
         return None
@@ -26,14 +32,16 @@ def display_mutual_information(selected_dataset_name, df):
         st.warning(f"Numeric Features: {', '.join(cols_with_missing)} contain missing values. Please ensure none of the numeric features contain missing values before using this tool.")
         return None
     
+    target_choices = [col for col in numeric_cols if col != primary_key and col not in encoded_features]
     # Ask the user to select a target feature.
-    target_feature = st.selectbox("Select Target Feature", options=numeric_cols, key="mi_target")
+    target_feature = st.selectbox("Select Target Feature", options=target_choices, key="mi_target")
     if not target_feature:
         st.info("Please select a target feature for MI analysis.")
         return None
-    
+
+
     # Use mutual_info_regression to compute MI scores for features (excluding the target).
-    features = [col for col in numeric_cols if col != target_feature]
+    features = [col for col in numeric_cols if col != target_feature and col != primary_key]
     if not features:
         st.info("Not enough numeric features for MI analysis (need at least one other than target).")
         return None
